@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+.git
+.gitignore
+*.log
+*.tmp
+*.DS_Store
+*.env
+node_modules/
+npm-debug.log
+docker-compose.override.yml
