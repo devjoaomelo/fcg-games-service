@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FCG.Games.Application\FCG.Games.Application.csproj" />
+    <ProjectReference Include="..\FCG.Games.Domain\FCG.Games.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
