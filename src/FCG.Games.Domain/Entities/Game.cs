@@ -1,20 +1,27 @@
-﻿namespace FCG.Games.Domain.Entities;
+﻿using FCG.Games.Domain.ValueObjects;
+
+namespace FCG.Games.Domain.Entities;
 
 public sealed class Game
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
-    public string Title { get; private set; }
-    public string? Genre { get; private set; }
-    public decimal Price { get; private set; }
+    public GameTitle Title { get; private set; }
+    public Description Description { get; private set; }
+    public Price Price { get; private set; }
 
     private Game() { }
 
-    public Game(string title, string? genre, decimal price)
+    public Game(GameTitle title, Description description, Price price)
     {
-        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title required", nameof(title));
-        if (price < 0) throw new ArgumentOutOfRangeException(nameof(price));
-        Title = title.Trim();
-        Genre = string.IsNullOrWhiteSpace(genre) ? null : genre.Trim();
+        Title = title ?? throw new ArgumentNullException(nameof(title));
+        Description = description ?? throw new ArgumentNullException(nameof(description));
+        Price = price;
+    }
+
+    public void Update(GameTitle title, Description description, Price price)
+    {
+        Title = title;
+        Description = description;
         Price = price;
     }
 }
