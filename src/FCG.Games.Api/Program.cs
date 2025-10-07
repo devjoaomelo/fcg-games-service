@@ -247,7 +247,7 @@ app.MapGet("/api/games", async (
 })
 .WithTags("Games")
 .WithSummary("Lista jogos (paginado)")
-.WithDescription("Retorna jogos do MySQL com paginação.");
+.WithDescription("Retorna jogos do MySQL com paginacao.");
 
 app.MapPut("/api/games/{id:guid}", async (
     Guid id,
@@ -263,7 +263,7 @@ app.MapPut("/api/games/{id:guid}", async (
 .RequireAuthorization("AdminOnly")
 .WithTags("Games")
 .WithSummary("Atualiza um jogo")
-.WithDescription("Atualiza título, descrição e preço. Reindexa no OpenSearch.");
+.WithDescription("Atualiza título, descricao e preco. Reindexa no OpenSearch.");
 
 app.MapDelete("/api/games/{id:guid}", async (
     Guid id,
@@ -276,21 +276,7 @@ app.MapDelete("/api/games/{id:guid}", async (
 .RequireAuthorization("AdminOnly")
 .WithTags("Games")
 .WithSummary("Remove um jogo")
-.WithDescription("Deleta do MySQL e remove do índice do OpenSearch.");
-
-app.MapGet("/whoami", (ClaimsPrincipal user) =>
-{
-    if (!(user.Identity?.IsAuthenticated ?? false)) return Results.Unauthorized();
-    return Results.Ok(new
-    {
-        sub = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value,
-        name = user.FindFirst(ClaimTypes.Name)?.Value,
-        email = user.FindFirst(ClaimTypes.Email)?.Value,
-        role = user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value,
-        iss = user.FindFirst("iss")?.Value,
-        aud = user.FindFirst("aud")?.Value
-    });
-}).RequireAuthorization();
+.WithDescription("Deleta do MySQL e remove do indice do OpenSearch.");
 #endregion
 
 
