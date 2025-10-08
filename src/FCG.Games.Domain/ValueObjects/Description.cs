@@ -12,13 +12,13 @@ public sealed class Description
     public static Description Create(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            throw new ArgumentException("Description is required", nameof(value));
+            throw new ArgumentException("Descrição é obrigatória", nameof(value));
 
         var trimmed = value.Trim();
         if (trimmed.Length < 10)
-            throw new ArgumentException("Description must have at least 10 characters");
+            throw new ArgumentException("Descrição deve ter no minimo 10 caracteres");
         if (trimmed.Length > 1000)
-            throw new ArgumentException("Description cannot exceed 1000 characters");
+            throw new ArgumentException("Descrição não deve ter mais que 1000 Caracteres");
 
         return new Description(trimmed);
     }

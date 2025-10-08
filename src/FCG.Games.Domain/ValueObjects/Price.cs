@@ -7,9 +7,9 @@ public readonly struct Price
 
     public static Price Parse(decimal value)
     {
-        if (value < 0) throw new ArgumentOutOfRangeException(nameof(value), "Price must be >= 0");
+        if (value < 0) throw new ArgumentOutOfRangeException(nameof(value), "Preço não pode ser negativo");
 
-        if (decimal.Round(value, 2) != value) throw new ArgumentException("Price must have 2 decimals max");
+        if (decimal.Round(value, 2) != value) throw new ArgumentException("Preço eve ter no máximo 2 decimais");
 
         return new Price(value);
     }
