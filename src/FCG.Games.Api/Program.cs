@@ -10,6 +10,7 @@ using FCG.Games.Infra.Data;
 using FCG.Games.Infra.Repositories;
 using FCG.Games.Infra.Search;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -31,7 +32,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer",              // <- minúsculo
+        Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Cole APENAS o token (sem 'Bearer ')"
@@ -64,22 +65,25 @@ var conn = builder.Configuration.GetConnectionString("GamesDb")
 var osUrl = builder.Configuration["OpenSearch:Url"] ?? "http://localhost:9200";
 var osIndex = builder.Configuration["OpenSearch:Index"] ?? "games";
 
-
 builder.Services.AddDbContext<GamesDbContext>(opt =>
     opt.UseMySql(conn, ServerVersion.AutoDetect(conn)));
 #endregion
 
+#region DI - Services e Handlers
 builder.Services.AddScoped<IGameRepository, MySqlGameRepository>();
 builder.Services.AddSingleton<IOpenSearchClient>(_ =>
     OpenSearchClientFactory.Create(osUrl, osIndex));
 builder.Services.AddScoped<IGameSearchRepository>(sp =>
     new OpenSearchGameRepository(sp.GetRequiredService<IOpenSearchClient>(), osIndex));
+
 builder.Services.AddScoped<IGameCreationService, GameCreationService>();
 builder.Services.AddScoped<CreateGameHandler>();
 builder.Services.AddScoped<GetGameByIdHandler>();
 builder.Services.AddScoped<ListGamesHandler>();
 builder.Services.AddScoped<UpdateGameHandler>();
 builder.Services.AddScoped<DeleteGameHandler>();
+builder.Services.AddScoped<GetGamesMetricsHandler>();
+#endregion
 
 #region JWT Auth
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "fcg-users";
@@ -103,7 +107,6 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
 
-            // aceita role no tipo padrão (ClaimTypes.Role)
             RoleClaimType = ClaimsIdentity.DefaultRoleClaimType
         };
 
@@ -137,7 +140,6 @@ builder.Services.AddAuthorization(opts =>
         ctx.User.HasClaim(c =>
             (c.Type == "role" || c.Type == ClaimTypes.Role) && c.Value == "Admin")));
 });
-
 #endregion
 
 var app = builder.Build();
@@ -151,7 +153,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
+#region Migrations
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -164,8 +166,9 @@ using (var scope = app.Services.CreateScope())
         // TODO: logar
     }
 }
+#endregion
 
-#region controllers
+#region Endpoints
 app.MapGet("/", () => new { service = "fcg-games-service", status = "ok" })
    .WithTags("Health");
 
@@ -181,28 +184,39 @@ app.MapGet("/version", () => new
 .WithTags("Health")
 .WithSummary("Versao do servico");
 
-
-app.MapPost("/api/games", async (
-    CreateGameRequest body,
-    CreateGameHandler handler,
+// GET /api/games/{id}
+app.MapGet("/api/games/{id:guid}", async (
+    Guid id,
+    [FromServices] GetGameByIdHandler handler,
     CancellationToken ct) =>
 {
-    var res = await handler.Handle(body, ct);
-    return Results.Created($"/api/games/{res.Id}", res);
+    var res = await handler.Handle(new GetGameByIdRequest(id), ct);
+    return res is null ? Results.NotFound() : Results.Ok(res);
 })
-.RequireAuthorization("AdminOnly")
 .WithTags("Games")
-.WithSummary("Cria um jogo")
-.WithDescription("Persiste no MySQL e indexa no OpenSearch (best-effort).")
-.Produces(StatusCodes.Status201Created)
-.Produces(StatusCodes.Status400BadRequest);
+.WithSummary("Busca jogo por ID")
+.WithDescription("Retorna um jogo persistido no MySQL.");
 
+// GET /api/games (lista paginada)
+app.MapGet("/api/games", async (
+    int page,
+    int size,
+    [FromServices] ListGamesHandler handler,
+    CancellationToken ct) =>
+{
+    var res = await handler.Handle(new ListGamesRequest(page, size), ct);
+    return Results.Ok(res);
+})
+.WithTags("Games")
+.WithSummary("Lista jogos (paginado)")
+.WithDescription("Retorna jogos do MySQL com paginacao.");
 
+// GET /api/games/search
 app.MapGet("/api/games/search", async (
     string? q,
     int page,
     int size,
-    IGameSearchRepository searchRepo,
+    [FromServices] IGameSearchRepository searchRepo,
     CancellationToken ct) =>
 {
     var (items, total) = await searchRepo.SearchAsync(q, page, size, ct);
@@ -222,52 +236,12 @@ app.MapGet("/api/games/search", async (
 })
 .WithTags("Games")
 .WithSummary("Busca jogos (OpenSearch)")
-.WithDescription("Pesquisa por texto em 'title' (boost) e 'description', com paginação.");
+.WithDescription("Pesquisa em title e description, com paginação.");
 
-app.MapGet("/api/games/{id:guid}", async (
-    Guid id,
-    GetGameByIdHandler handler,
-    CancellationToken ct) =>
-{
-    var res = await handler.Handle(new GetGameByIdRequest(id), ct);
-    return res is null ? Results.NotFound() : Results.Ok(res);
-})
-.WithTags("Games")
-.WithSummary("Busca jogo por ID")
-.WithDescription("Retorna um jogo persistido no MySQL.");
-
-app.MapGet("/api/games", async (
-    int page,
-    int size,
-    ListGamesHandler handler,
-    CancellationToken ct) =>
-{
-    var res = await handler.Handle(new ListGamesRequest(page, size), ct);
-    return Results.Ok(res);
-})
-.WithTags("Games")
-.WithSummary("Lista jogos (paginado)")
-.WithDescription("Retorna jogos do MySQL com paginacao.");
-
-app.MapPut("/api/games/{id:guid}", async (
-    Guid id,
-    UpdateGameRequest body,
-    UpdateGameHandler handler,
-    CancellationToken ct) =>
-{
-    var req = body with { Id = id };
-
-    var res = await handler.Handle(req, ct);
-    return res is null ? Results.NotFound() : Results.Ok(res);
-})
-.RequireAuthorization("AdminOnly")
-.WithTags("Games")
-.WithSummary("Atualiza um jogo")
-.WithDescription("Atualiza título, descricao e preco. Reindexa no OpenSearch.");
-
+// DELETE /api/games/{id}
 app.MapDelete("/api/games/{id:guid}", async (
     Guid id,
-    DeleteGameHandler handler,
+    [FromServices] DeleteGameHandler handler,
     CancellationToken ct) =>
 {
     var ok = await handler.Handle(new DeleteGameRequest(id), ct);
@@ -276,8 +250,40 @@ app.MapDelete("/api/games/{id:guid}", async (
 .RequireAuthorization("AdminOnly")
 .WithTags("Games")
 .WithSummary("Remove um jogo")
-.WithDescription("Deleta do MySQL e remove do indice do OpenSearch.");
-#endregion
+.WithDescription("Deleta do MySQL e remove do índice do OpenSearch.");
 
+app.MapPost("/api/games", async (
+    CreateGameRequest body,
+    [FromServices] CreateGameHandler handler,
+    CancellationToken ct) =>
+{
+    var res = await handler.Handle(body, ct);
+    return Results.Created($"/api/games/{res.Id}", res);
+})
+.RequireAuthorization("AdminOnly")
+.WithTags("Games");
+
+app.MapPut("/api/games/{id:guid}", async (
+    Guid id,
+    UpdateGameRequest body,
+    [FromServices] UpdateGameHandler handler,
+    CancellationToken ct) =>
+{
+    var req = body with { Id = id };
+    var res = await handler.Handle(req, ct);
+    return res is null ? Results.NotFound() : Results.Ok(res);
+})
+.RequireAuthorization("AdminOnly")
+.WithTags("Games");
+
+app.MapGet("/api/games/metrics", async (HttpContext ctx, CancellationToken ct) =>
+{
+    var handler = ctx.RequestServices.GetRequiredService<GetGamesMetricsHandler>();
+    var res = await handler.Handle(ct);
+    return Results.Ok(res);
+});
+
+
+#endregion
 
 app.Run();
