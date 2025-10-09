@@ -161,29 +161,30 @@ builder.Services.AddAuthorization(opts =>
 
 var app = builder.Build();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
-if (app.Environment.IsDevelopment())
+/*
+ * if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-#region Migrations
-using (var scope = app.Services.CreateScope())
+app.UseAuthentication();
+app.UseAuthorization();
+ */
+
+var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:EnableUI", false);
+if (enableSwagger)
 {
-    try
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
     {
-        var db = scope.ServiceProvider.GetRequiredService<GamesDbContext>();
-        await db.Database.MigrateAsync();
-    }
-    catch
-    {
-        // TODO: logar
-    }
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "FCG API v1");
+        c.RoutePrefix = "swagger";
+    });
 }
-#endregion
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 #region Endpoints
 app.MapGet("/", () => new { service = "fcg-games-service", status = "ok" })
