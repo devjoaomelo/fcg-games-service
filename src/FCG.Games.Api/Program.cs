@@ -22,6 +22,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
 #region swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -71,10 +76,21 @@ builder.Services.AddDbContext<GamesDbContext>(opt =>
 
 #region DI - Services e Handlers
 builder.Services.AddScoped<IGameRepository, MySqlGameRepository>();
-builder.Services.AddSingleton<IOpenSearchClient>(_ =>
-    OpenSearchClientFactory.Create(osUrl, osIndex));
-builder.Services.AddScoped<IGameSearchRepository>(sp =>
-    new OpenSearchGameRepository(sp.GetRequiredService<IOpenSearchClient>(), osIndex));
+
+var useOpenSearch = builder.Configuration.GetValue<bool>("Search:UseOpenSearch", false);
+
+if (useOpenSearch)
+{
+    builder.Services.AddSingleton<IOpenSearchClient>(_ =>
+        OpenSearchClientFactory.Create(osUrl, osIndex));
+
+    builder.Services.AddScoped<IGameSearchRepository>(sp =>
+        new OpenSearchGameRepository(sp.GetRequiredService<IOpenSearchClient>(), osIndex));
+}
+else
+{
+    builder.Services.AddScoped<IGameSearchRepository, MySqlLikeSearchGameRepository>();
+}
 
 builder.Services.AddScoped<IGameCreationService, GameCreationService>();
 builder.Services.AddScoped<CreateGameHandler>();
@@ -141,6 +157,7 @@ builder.Services.AddAuthorization(opts =>
             (c.Type == "role" || c.Type == ClaimTypes.Role) && c.Value == "Admin")));
 });
 #endregion
+
 
 var app = builder.Build();
 
