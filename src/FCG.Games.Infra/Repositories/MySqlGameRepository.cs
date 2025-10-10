@@ -13,6 +13,9 @@ public sealed class MySqlGameRepository(GamesDbContext db) : IGameRepository
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<bool> ExistsByTitleAsync(string title, CancellationToken ct = default)
+        => await db.Games.AsNoTracking().AnyAsync(g => g.Title.Value == title, ct);
+
     public async Task UpdateAsync(Game game, CancellationToken ct = default)
     {
         db.Games.Update(game);

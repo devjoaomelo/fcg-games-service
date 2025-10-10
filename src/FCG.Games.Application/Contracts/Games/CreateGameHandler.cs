@@ -19,17 +19,17 @@ public sealed class CreateGameHandler(
 {
     public async Task<CreateGameResponse> Handle(CreateGameRequest req, CancellationToken ct = default)
     {
-        var game = gameCreation.Create(req.Title, req.Description, req.Price);
+        var normalizedTitle = (req.Title ?? string.Empty).Trim();
 
-        await gameRepository.AddAsync(game, ct);               
-        try 
-        { 
-            await searchRepository.IndexAsync(game, ct);
-        }   
-        catch 
-        { 
-            /* TODO: logar */ 
-        }
+        if (await gameRepository.ExistsByTitleAsync(normalizedTitle, ct))
+            throw new ArgumentException($"Já existe um jogo com o título '{normalizedTitle}'.");
+
+        var game = gameCreation.Create(normalizedTitle, req.Description, req.Price);
+
+        await gameRepository.AddAsync(game, ct);
+
+        try { await searchRepository.IndexAsync(game, ct); }
+        catch { /* TODO: logar */ }
 
         return CreateGameResponse.FromDomain(game);
     }
