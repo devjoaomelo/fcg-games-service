@@ -1,5 +1,6 @@
 ﻿using FCG.Games.Domain.Entities;
 using FCG.Games.Domain.Interfaces;
+using FCG.Games.Domain.ValueObjects; // <— para GameTitle.Create(...)
 using FCG.Games.Infra.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,11 @@ public sealed class MySqlGameRepository(GamesDbContext db) : IGameRepository
     }
 
     public async Task<bool> ExistsByTitleAsync(string title, CancellationToken ct = default)
-        => await db.Games.AsNoTracking().AnyAsync(g => g.Title.Value == title, ct);
+    {
+        // Opção A — compara o VO (recomendado quando há HasConversion)
+        var vo = GameTitle.Create(title);
+        return await db.Games.AsNoTracking().AnyAsync(g => g.Title == vo, ct);
+    }
 
     public async Task UpdateAsync(Game game, CancellationToken ct = default)
     {
