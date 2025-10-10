@@ -1,5 +1,7 @@
-﻿using FCG.Games.Domain.Entities;
+﻿using FCG.Games.Application.Interfaces;
+using FCG.Games.Domain.Entities;
 using FCG.Games.Domain.Interfaces;
+using System.Reflection.Metadata;
 
 
 namespace FCG.Games.Application.UseCases.Games.CreateGame;
@@ -15,7 +17,8 @@ public sealed record CreateGameResponse(Guid Id, string Title, string? Descripti
 public sealed class CreateGameHandler(
     IGameCreationService gameCreation,
     IGameRepository gameRepository,
-    IGameSearchRepository searchRepository)
+    IGameSearchRepository searchRepository,
+    IEventStore eventStore)
 {
     public async Task<CreateGameResponse> Handle(CreateGameRequest req, CancellationToken ct = default)
     {
@@ -27,6 +30,17 @@ public sealed class CreateGameHandler(
         var game = gameCreation.Create(normalizedTitle, req.Description, req.Price);
 
         await gameRepository.AddAsync(game, ct);
+        await eventStore.AppendAsync(
+            aggregateId: game.Id,
+            type: "GameCreated",
+            data: new
+            {
+                game.Id,
+                Title = game.Title.Value,
+                Description = game.Description.Value,
+                Price = game.Price.Value,
+            },
+            ct);
 
         try { await searchRepository.IndexAsync(game, ct); }
         catch { /* TODO: logar */ }
