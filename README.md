@@ -15,6 +15,7 @@ A API Games é o coração do catálogo da plataforma FIAP Cloud Games, oferecen
 
 ##  Arquitetura
 
+<img width="1070" height="601" alt="Captura de tela 2025-10-10 224829" src="https://github.com/user-attachments/assets/62fc8e1b-9e65-4120-96ad-1f18ba89fca3" />
 
 ###  Infraestrutura
 
