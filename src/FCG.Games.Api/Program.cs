@@ -14,6 +14,7 @@ using FCG.Games.Infra.Search;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OpenSearch.Client;
@@ -105,6 +106,22 @@ var useOpenSearch = builder.Configuration.GetValue<bool>("Search:UseOpenSearch",
 
 if (useOpenSearch)
 {
+    builder.Services.AddHealthChecks()
+        .AddCheck("opensearch", () =>
+        {
+            try
+            {
+                var client = OpenSearchClientFactory.Create(osUrl, osIndex);
+                var response = client.Ping();
+                return response.IsValid
+                    ? HealthCheckResult.Healthy("OpenSearch is reachable")
+                    : HealthCheckResult.Degraded("OpenSearch is not responding");
+            }
+            catch (Exception ex)
+            {
+                return HealthCheckResult.Unhealthy("OpenSearch connection failed", ex);
+            }
+        });
     builder.Services.AddSingleton<IOpenSearchClient>(_ =>
         OpenSearchClientFactory.Create(osUrl, osIndex));
 
@@ -404,18 +421,40 @@ app.MapGet("/api/games/metrics", async (HttpContext ctx, CancellationToken ct) =
 app.MapPost("/api/games/reindex", async (
     IGameRepository repo,
     IGameSearchRepository search,
+    ILogger<Program> logger,
     CancellationToken ct) =>
 {
-    var page = 1; var size = 200; var total = 0;
-    while (true)
+    try
     {
-        var batch = await repo.ListAsync(page, size, ct);
-        if (batch.Count == 0) break;
-        await search.BulkIndexAsync(batch, ct);
-        total += batch.Count; page++;
+        var page = 1;
+        const int batchSize = 100;
+        long totalIndexed = 0;
+
+        while (true)
+        {
+            var games = await repo.ListAsync(page, batchSize, ct);
+            if (games.Count == 0) break;
+
+            await search.BulkIndexAsync(games, ct);
+            totalIndexed += games.Count;
+
+            logger.LogInformation("Indexed batch {Page}: {Count} games (total: {Total})",
+                page, games.Count, totalIndexed);
+
+            page++;
+
+            await Task.Delay(100, ct);
+        }
+
+        return Results.Ok(new { success = true, totalIndexed });
     }
-    return Results.Ok(new { indexed = total });
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Reindex failed");
+        return Results.Problem(ex.Message);
+    }
 })
+.RequireAuthorization("AdminOnly")
 .WithTags("Games")
 .WithSummary("Reindexa todos os jogos no OpenSearch");
 

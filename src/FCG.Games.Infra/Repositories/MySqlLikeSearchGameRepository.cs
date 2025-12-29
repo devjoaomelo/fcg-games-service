@@ -22,10 +22,11 @@ public sealed class MySqlLikeSearchGameRepository : IGameSearchRepository
 
     // ==== Busca por LIKE no MySQL ====
     public async Task<(IReadOnlyList<Game> items, long total)> SearchAsync(
-        string? q, int page, int size, CancellationToken ct = default)
+    string? q, int page, int size, CancellationToken ct = default)
     {
         if (page <= 0) page = 1;
         if (size <= 0 || size > 200) size = 10;
+        if (size > 50) size = 50;
 
         var query = _db.Games.AsNoTracking().AsQueryable();
 
