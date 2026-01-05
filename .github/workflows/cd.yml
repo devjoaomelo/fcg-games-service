@@ -13,7 +13,7 @@ jobs:
       AWS_ACCOUNT_ID: 536765581095
       ECR_REPO: fcg-games
       CLUSTER_NAME: fcg-cluster
-      SERVICE_NAME: fcg-games-svc
+      SERVICE_NAME: fcg-games-service
       TASKDEF_FAMILY: fcg-games-task
       CONTAINER_NAME: app
       IMAGE_TAG: ${{ github.sha }}
