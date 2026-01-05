@@ -306,7 +306,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 #region Endpoints
-app.MapGet("/", () => new { service = "fcg-games-service", status = "ok" })
+app.MapGet("/status", () => new { service = "fcg-games-service", status = "ok" })
    .WithTags("Health");
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
@@ -322,7 +322,7 @@ app.MapGet("/version", () => new
 .WithSummary("Versao do servico");
 
 // GET /api/games/{id}
-app.MapGet("/api/games/{id:guid}", async (
+app.MapGet("/{id:guid}", async (
     Guid id,
     [FromServices] GetGameByIdHandler handler,
     CancellationToken ct) =>
@@ -335,7 +335,7 @@ app.MapGet("/api/games/{id:guid}", async (
 .WithDescription("Retorna um jogo persistido no MySQL.");
 
 // GET /api/games (lista paginada)
-app.MapGet("/api/games", async (
+app.MapGet("/", async (
     int page,
     int size,
     [FromServices] ListGamesHandler handler,
@@ -349,7 +349,7 @@ app.MapGet("/api/games", async (
 .WithDescription("Retorna jogos do MySQL com paginacao.");
 
 // GET /api/games/search
-app.MapGet("/api/games/search", async (
+app.MapGet("/search", async (
     string? q,
     int page,
     int size,
@@ -376,7 +376,7 @@ app.MapGet("/api/games/search", async (
 .WithDescription("Pesquisa em title e description, com paginação.");
 
 // DELETE /api/games/{id}
-app.MapDelete("/api/games/{id:guid}", async (
+app.MapDelete("/{id:guid}", async (
     Guid id,
     [FromServices] DeleteGameHandler handler,
     CancellationToken ct) =>
@@ -389,18 +389,18 @@ app.MapDelete("/api/games/{id:guid}", async (
 .WithSummary("Remove um jogo")
 .WithDescription("Deleta do MySQL e remove do índice do OpenSearch.");
 
-app.MapPost("/api/games", async (
+app.MapPost("/", async (
     CreateGameRequest body,
     [FromServices] CreateGameHandler handler,
     CancellationToken ct) =>
 {
     var res = await handler.Handle(body, ct);
-    return Results.Created($"/api/games/{res.Id}", res);
+    return Results.Created($"/{res.Id}", res);
 })
 .RequireAuthorization("AdminOnly")
 .WithTags("Games");
 
-app.MapPut("/api/games/{id:guid}", async (
+app.MapPut("/{id:guid}", async (
     Guid id,
     UpdateGameRequest body,
     [FromServices] UpdateGameHandler handler,
@@ -413,14 +413,14 @@ app.MapPut("/api/games/{id:guid}", async (
 .RequireAuthorization("AdminOnly")
 .WithTags("Games");
 
-app.MapGet("/api/games/metrics", async (HttpContext ctx, CancellationToken ct) =>
+app.MapGet("/metrics", async (HttpContext ctx, CancellationToken ct) =>
 {
     var handler = ctx.RequestServices.GetRequiredService<GetGamesMetricsHandler>();
     var res = await handler.Handle(ct);
     return Results.Ok(res);
 });
 
-app.MapPost("/api/games/reindex", async (
+app.MapPost("/reindex", async (
     IGameRepository repo,
     IGameSearchRepository search,
     ILogger<Program> logger,
@@ -460,7 +460,7 @@ app.MapPost("/api/games/reindex", async (
 .WithTags("Games")
 .WithSummary("Reindexa todos os jogos no OpenSearch");
 
-app.MapGet("/api/games/{id:guid}/events",
+app.MapGet("/{id:guid}/events",
     async (Guid id, IEventStore es, CancellationToken ct) =>
     {
         var list = await es.ListByAggregateAsync(id, ct);
