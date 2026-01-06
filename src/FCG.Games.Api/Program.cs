@@ -465,4 +465,17 @@ app.MapGet("/{id:guid}/events",
 
 #endregion
 
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<GamesDbContext>();
+        await db.Database.MigrateAsync();
+    }
+    catch
+    {
+        // TODO Log erro de migration
+    }
+}
+
 app.Run();
