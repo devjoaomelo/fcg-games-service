@@ -287,9 +287,9 @@ if (enableSwagger)
         {
             var basePath = httpReq.PathBase.Value ?? "";
             swagger.Servers = new List<OpenApiServer>
-            {
-                new OpenApiServer { Url = basePath }
-            };
+        {
+            new OpenApiServer { Url = string.IsNullOrEmpty(basePath) ? "/" : basePath }
+        };
         });
     });
     app.UseSwaggerUI(c =>
