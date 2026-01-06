@@ -275,35 +275,29 @@ app.UseSerilogRequestLogging(opts =>
     };
 });
 
-/*
- * if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
- */
-
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 
 var enableSwagger = builder.Configuration.GetValue<bool>("Swagger:EnableUI", false);
 if (enableSwagger)
 {
-    app.UseSwagger();
+    app.UseSwagger(c =>
+    {
+        c.PreSerializeFilters.Add((swagger, httpReq) =>
+        {
+            var basePath = httpReq.PathBase.Value ?? "";
+            swagger.Servers = new List<OpenApiServer>
+            {
+                new OpenApiServer { Url = basePath }
+            };
+        });
+    });
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("v1/swagger.json", "FCG API v1");
+        c.SwaggerEndpoint("v1/swagger.json", "FCG Games API v1");
         c.RoutePrefix = "swagger";
     });
 }
-
-
-
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 #region Endpoints
 app.MapGet("/status", () => new { service = "fcg-games-service", status = "ok" })
@@ -373,7 +367,7 @@ app.MapGet("/search", async (
 })
 .WithTags("Games")
 .WithSummary("Busca jogos (OpenSearch)")
-.WithDescription("Pesquisa em title e description, com paginação.");
+.WithDescription("Pesquisa em title e description, com paginaÃ§Ã£o.");
 
 // DELETE /api/games/{id}
 app.MapDelete("/{id:guid}", async (
@@ -387,7 +381,7 @@ app.MapDelete("/{id:guid}", async (
 .RequireAuthorization("AdminOnly")
 .WithTags("Games")
 .WithSummary("Remove um jogo")
-.WithDescription("Deleta do MySQL e remove do índice do OpenSearch.");
+.WithDescription("Deleta do MySQL e remove do Ã­ndice do OpenSearch.");
 
 app.MapPost("/", async (
     CreateGameRequest body,
