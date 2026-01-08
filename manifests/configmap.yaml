@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fcg-games-config
+  namespace: default
+data:
+  jwt-issuer: "fcg-users"
+  jwt-audience: "fcg-clients"
+  swagger-enabled: "true"
